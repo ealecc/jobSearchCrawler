@@ -2,18 +2,34 @@
 from bs4 import BeautifulSoup
 from requests import get
 
-URL = "https://www.seek.com.au/system-administrator-jobs/in-Toowoomba-&-Darling-Downs-QLD"
+URL = "https://www.seek.com.au/system-administrator-jobs/in-All-Brisbane-QLD"
+DOMAIN = "https://www.seek.com.au/"
 
-# Find jobs on seek and return a list of
-def seek_jobs (search_query):
+# Find jobs on seek and return a list containing job information
+def find_all_jobs(url):
     output = ["Title","Location","Salary","Description","Date listed","Start Date"]
+    last_page = False
+    
+    # iterate through pages of results until done
+    while not last_page:
+        #print("Working on page " + url)
 
-    soup = BeautifulSoup(get(search_query).text, 'html.parser')
+        soup = BeautifulSoup(get(url).text, 'html.parser')
+        output.append(find_jobs_on_page(soup))
+        
+        try:
+            url = DOMAIN + soup.find('a',{"data-automation":"page-next"}).get('href')
+        except AttributeError:
+            last_page = True
+    
+    return output
+
+# Given a soup of one SEEK page, return a list of job info
+def find_jobs_on_page(soup):
     jobs = soup.findAll('article')
+    page_info = []
     
     for job in jobs:
-        pageurl = "https://www.seek.com.au/" + job.find('a',{"data-automation":"jobTitle"}).get('href')
-        page = BeautifulSoup(get(pageurl).text, 'html.parser')
         job_info = []
 
         title = job.find('a',{"data-automation":"jobTitle"}).text
@@ -30,19 +46,25 @@ def seek_jobs (search_query):
 
         try:
             salary = job.find('span',{"data-automation":"jobSalary"}).span.text
-        except:
+        except AttributeError:
             salary = "No Listed Salary"
         job_info.append(salary)
 
         description = job.find('span',{"data-automation":"jobShortDescription"}).span.text
         job_info.append(description)
 
-        listed_date = job.find('span',{"data-automation":"jobListingDate"}).text
+        try:
+            listed_date = job.find('span',{"data-automation":"jobListingDate"}).text
+        except AttributeError:
+            listed_date = "No listed date"
         job_info.append(listed_date)
-        
-        start_date = page.find('dd',{"data-automation":"job-detail-date"}).span.span.text
-        job_info.append(start_date)
 
-        output.append(job_info)
+        page_info.append(job_info)
     
-    return output
+    return page_info
+
+def main():
+    print(find_all_jobs(URL))
+
+if __name__ == "__main__":
+    main()
